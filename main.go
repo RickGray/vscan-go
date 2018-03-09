@@ -568,7 +568,7 @@ func (p *Probe) parseProbeInfo(probeStr string) {
 
 	p.Name = directive.DirectiveName
 	p.Data = strings.Split(directive.DirectiveStr, directive.Delimiter)[0]
-	p.Protocol = strings.TrimSpace(proto)
+	p.Protocol = strings.ToLower(strings.TrimSpace(proto))
 }
 
 func (p *Probe) ContainsPort(testPort int) bool {
@@ -752,7 +752,7 @@ func (v *VScan) Explore(target Target, config *Config) (Result, error) {
 	// 使用所有 Probe 探针进行服务识别尝试，忽略 Probe 的 Ports 端口匹配
 	if config.UseAllProbes {
 		for _, probe := range v.Probes {
-			if probe.Protocol == target.Protocol {
+			if strings.ToLower(probe.Protocol) == strings.ToLower(target.Protocol) {
 				probesUsed = append(probesUsed, probe)
 			}
 		}
@@ -765,7 +765,7 @@ func (v *VScan) Explore(target Target, config *Config) (Result, error) {
 	// 未进行特殊配置，默认只使用 NULL Probe 和包含了探测端口的 Probe 探针组
 	{
 		for _, probe := range v.Probes {
-			if probe.ContainsPort(target.Port) && probe.Protocol == target.Protocol {
+			if probe.ContainsPort(target.Port) && strings.ToLower(probe.Protocol) == strings.ToLower(target.Protocol) {
 				probesUsed = append(probesUsed, probe)
 			}
 		}
@@ -821,7 +821,7 @@ func (v *VScan) scanWithProbes(target Target, probes *[]Probe, config *Config) (
 					result.Service.Details.ProbeData = probe.Data
 					result.Service.Details.MatchMatched = match.Pattern
 
-					result.Service.Protocol = probe.Protocol
+					result.Service.Protocol = strings.ToLower(probe.Protocol)
 					result.Service.Name = match.Service
 
 					result.Banner = string(response)
@@ -857,7 +857,7 @@ func (v *VScan) scanWithProbes(target Target, probes *[]Probe, config *Config) (
 						result.Service.Details.ProbeData = probe.Data
 						result.Service.Details.MatchMatched = match.Pattern
 
-						result.Service.Protocol = probe.Protocol
+						result.Service.Protocol = strings.ToLower(probe.Protocol)
 						result.Service.Name = match.Service
 
 						result.Banner = string(response)
@@ -882,7 +882,7 @@ func (v *VScan) scanWithProbes(target Target, probes *[]Probe, config *Config) (
 			if !found {
 				if !softFound {
 					result.Service.Target = target
-					result.Service.Protocol = probe.Protocol
+					result.Service.Protocol = strings.ToLower(probe.Protocol)
 
 					result.Service.Details.ProbeName = probe.Name
 					result.Service.Details.ProbeData = probe.Data
@@ -896,7 +896,7 @@ func (v *VScan) scanWithProbes(target Target, probes *[]Probe, config *Config) (
 					return result, nil
 				} else {
 					result.Service.Target = target
-					result.Service.Protocol = probe.Protocol
+					result.Service.Protocol = strings.ToLower(probe.Protocol)
 					result.Service.Details.ProbeName = probe.Name
 					result.Service.Details.ProbeData = probe.Data
 					result.Service.Details.MatchMatched = softMatch.Pattern
@@ -926,7 +926,7 @@ func grabResponse(target Target, data []byte, config *Config) ([]byte, error) {
 	addr := target.GetAddress()
 	dialer := net.Dialer{}
 
-	proto := strings.ToLower(target.Protocol)
+	proto := target.Protocol
 	if !(proto == "tcp" || proto == "udp") {
 		log.Fatal("Failed to send request with unknown protocol", proto)
 	}
@@ -1090,6 +1090,8 @@ func main() {
 		wg.Done()
 	}(&wgOutput)
 
+	targetPattern := `^(?P<ip>(?:(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}(?:[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])):(?P<port>\d+)/?(?P<protocol>udp|tcp)?$`
+	targetRegexp := regexp.MustCompile(targetPattern)
 	reader := bufio.NewReader(inFile)
 	for {
 		line, err := reader.ReadString('\n')
@@ -1103,15 +1105,32 @@ func main() {
 		} else {
 			// 解析输入格式
 			//  >> {IP}:{PORT}(/(tcp)|(udp))?
-			parts := strings.Split(line, ":")
-			ip := parts[0]
-			port := parts[1]
+
+			finds := targetRegexp.FindStringSubmatch(line)
+			if len(finds) > 0 {
+
+			} else {
+				Error("Wrong input target format, ", line)
+				continue
+			}
+
+			ip := finds[1]
+			port := finds[2]
+			protocol := finds[3]
+			if !(protocol == "tcp" || protocol == "udp") {
+				// 默认使用 tcp
+				protocol = "tcp"
+			}
+
+			// fmt.Println(len(finds), finds)
+
 			portNum, _ := strconv.Atoi(port)
 			target := Target{
 				IP:       ip,
 				Port:     portNum,
-				Protocol: "TCP",
+				Protocol: protocol,
 			}
+			Debug(target)
 			inTargetChan <- target
 		}
 	}
