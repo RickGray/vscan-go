@@ -67,7 +67,7 @@ if you want more details about vscan, see [https://nmap.org/book/vscan.html](htt
 With [masscan](https://github.com/robertdavidgraham/masscan):
 
 ```
-$ masscan -p21,22,23,80,1433,3306 --excludefile=blacklist.conf 0.0.0.0/0 | awk -F '/' '{print $1" "$2}' | awk '{print $7":"$4}' | vscan-go -scan-probe-file ./nmap-service-probes -routines=2000 | jq
+$ masscan -p1-65535,U:1-65535 --excludefile=blacklist.conf 0.0.0.0/0 | awk -F '/' '{print $1" "$2}' | awk '{print $7":"$4"/"$5}' | vscan-go vscan-go -scan-probe-file ./nmap-service-probes -routines=2000 | jq
 ```
 
 With [zmap](https://github.com/zmap/zmap):
