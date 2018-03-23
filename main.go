@@ -111,13 +111,13 @@ type Service struct {
 
 // 对应 NMap versioninfo 信息
 type Extras struct {
-	VendorProduct   string `json:"vendor_product"`
-	Version         string `json:"version"`
-	Info            string `json:"info"`
-	Hostname        string `json:"hostname"`
-	OperatingSystem string `json:"operating_system"`
-	DeviceType      string `json:"device_type"`
-	CPE             string `json:"cpe"`
+	VendorProduct   string `json:"vendor_product,omitempty"`
+	Version         string `json:"version,omitempty"`
+	Info            string `json:"info,omitempty"`
+	Hostname        string `json:"hostname,omitempty"`
+	OperatingSystem string `json:"operating_system,omitempty"`
+	DeviceType      string `json:"device_type,omitempty"`
+	CPE             string `json:"cpe,omitempty"`
 }
 
 // 详细的结果数据（包含具体的 Probe 和匹配规则信息）
@@ -1012,7 +1012,7 @@ func init() {
 	case "-":
 		outFile = os.Stdout
 	default:
-		outFileT, err := os.Open(outFileName)
+		outFileT, err := os.Create(outFileName)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -1051,7 +1051,7 @@ func main() {
 
 	// 初始化 VScan 实例，并加载默认 nmap-service-probes 文件解析 Probe 列表
 	v := VScan{}
-	v.Init("./nmap-service-probes")
+	v.Init(scanProbeFile)
 
 	// 输入输出缓冲为最大协程数量的 5 倍
 	inTargetChan = make(chan Target, routines*5)
