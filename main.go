@@ -640,7 +640,8 @@ func (ps ProbesRarity) Less(i, j int) bool {
 
 func sortProbesByRarity(probes []Probe) (probesSorted []Probe) {
 	probesToSort := ProbesRarity(probes)
-	sort.Sort(probesToSort)
+	sort.Stable(probesToSort)
+	// 稳定排序 ， 探针发送顺序不同，最后会导致探测服务出现问题
 	probesSorted = []Probe(probesToSort)
 	return probesSorted
 }
