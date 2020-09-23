@@ -1,23 +1,23 @@
 package main
 
 import (
+	"bufio"
+	"errors"
+	"flag"
 	"io"
-	"os"
 	"log"
 	"net"
-	"flag"
-	"sort"
-	"sync"
-	"time"
-	"bufio"
+	"os"
 	"regexp"
-	"errors"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
-	"io/ioutil"
 	"encoding/json"
+	"io/ioutil"
 )
 
 var config Config
@@ -248,9 +248,10 @@ func (m *Match) ParseVersionInfo(response []byte) Extras {
 
 // 探针规则，包含该探针规则下的服务匹配条目和其他探测信息
 type Probe struct {
-	Name     string
-	Data     string
-	Protocol string
+	Name        string
+	Data        string
+	DecodedData []byte
+	Protocol    string
 
 	Ports    string
 	SSLPorts string
@@ -304,7 +305,7 @@ func isOtherEscapeCode(b []byte) bool {
 
 	(3) pattern: \x2e\x2a\x3f\x2b\x7b\x7d\x28\x29\x5e\x24\x7c\x5c
 		decodedStr: \.\*\?\+\{\}\(\)\^\$\|\\
- */
+*/
 func DecodePattern(s string) ([]byte, error) {
 	sByteOrigin := []byte(s)
 	matchRe := regexp.MustCompile(`\\(x[0-9a-fA-F]{2}|[0-7]{1,3}|[aftnrv])`)
@@ -416,8 +417,8 @@ func (p *Probe) getDirectiveSyntax(data string) (directive Directive) {
 	blankIndex := strings.Index(data, " ")
 	directiveName := data[:blankIndex]
 	//blankSpace := data[blankIndex: blankIndex+1]
-	Flag := data[blankIndex+1: blankIndex+2]
-	delimiter := data[blankIndex+2: blankIndex+3]
+	Flag := data[blankIndex+1 : blankIndex+2]
+	delimiter := data[blankIndex+2 : blankIndex+3]
 	directiveStr := data[blankIndex+3:]
 
 	directive.DirectiveName = directiveName
@@ -568,6 +569,7 @@ func (p *Probe) parseProbeInfo(probeStr string) {
 
 	p.Name = directive.DirectiveName
 	p.Data = strings.Split(directive.DirectiveStr, directive.Delimiter)[0]
+	p.DecodedData, _ = DecodeData(p.Data)
 	p.Protocol = strings.ToLower(strings.TrimSpace(proto))
 }
 
@@ -798,10 +800,8 @@ func (v *VScan) scanWithProbes(target Target, probes *[]Probe, config *Config) (
 	for _, probe := range *probes {
 		var response []byte
 
-		probeData, _ := DecodeData(probe.Data)
-
 		Debug("Try Probe(" + probe.Name + ")" + ", Data(" + probe.Data + ")")
-		response, _ = grabResponse(target, probeData, config)
+		response, _ = grabResponse(target, probe.DecodedData, config)
 
 		// 成功获取 Banner 即开始匹配规则，无规则匹配则直接返回
 		if len(response) > 0 {
